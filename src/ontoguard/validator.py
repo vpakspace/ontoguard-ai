@@ -773,24 +773,33 @@ class OntologyValidator:
         return suggestions[:5]  # Limit to 5 suggestions
     
     def _find_actions_for_entity_simple(self, entity: str) -> List[str]:
-        """Simple fallback method to find actions for an entity."""
-        if self.graph is None:
+        """
+        Find actions for an entity using parsed action rules.
+
+        Returns only actions from _action_rules that have matching appliesTo,
+        or all known actions if no appliesTo filtering is possible.
+        """
+        if not self._action_rules:
             return []
-        
+
+        entity_lower = entity.lower().strip()
         actions = []
-        entity_lower = entity.lower()
-        
-        # Simple traversal to find related actions
-        for subject, predicate, obj in self.graph:
-            subject_label = self._get_label(subject)
-            if subject_label and entity_lower in subject_label.lower():
-                # Look for related actions
-                for _, pred, action_obj in self.graph.triples((subject, None, None)):
-                    action_label = self._get_label(action_obj)
-                    if action_label:
-                        actions.append(action_label)
-        
-        return list(set(actions))  # Remove duplicates
+
+        # Filter actions by appliesTo property
+        for action_name, rule in self._action_rules.items():
+            applies_to = rule.get("appliesTo", "").lower()
+
+            # Include action if:
+            # 1. appliesTo matches entity (exact or partial)
+            # 2. No appliesTo defined (action applies to all)
+            if not applies_to or applies_to == entity_lower or entity_lower in applies_to or applies_to in entity_lower:
+                actions.append(action_name)
+
+        # If no actions found with appliesTo filter, return all known actions
+        if not actions and self._known_actions:
+            return list(self._known_actions)
+
+        return actions
     
     def _get_label(self, resource: URIRef) -> Optional[str]:
         """Get the label (rdfs:label) for a resource, or extract from URI."""

@@ -348,20 +348,20 @@ def _get_allowed_actions_impl(
 def _explain_rule_impl(rule_name: str) -> Dict[str, Any]:
     """
     Explains what a specific business rule means.
-    
+
     This tool queries the ontology to provide a human-readable explanation
     of a specific business rule, including what it does, when it applies,
     and what constraints it enforces.
-    
+
     Use this tool when you need to understand the meaning and purpose of
     a specific rule in your ontology.
-    
+
     Args:
         rule_name: Name or identifier of the rule to explain. This could be:
                    - An action name (e.g., "DeleteUser", "ProcessRefund")
                    - A constraint name (e.g., "RefundThreshold", "TimeLimit")
                    - A class name (e.g., "User", "Order")
-    
+
     Returns:
         Dictionary containing:
         - rule_name (str): The rule that was queried
@@ -369,7 +369,7 @@ def _explain_rule_impl(rule_name: str) -> Dict[str, Any]:
         - constraints (list): List of constraints enforced by this rule
         - applies_to (list): Entity types this rule applies to
         - found (bool): Whether the rule was found in the ontology
-    
+
     Example:
         {
             "rule_name": "ProcessRefund",
@@ -380,58 +380,113 @@ def _explain_rule_impl(rule_name: str) -> Dict[str, Any]:
         }
     """
     logger.info(f"Explaining rule: {rule_name}")
-    
+
     try:
         validator = initialize_validator()
-        
+
         if validator.graph is None:
             raise RuntimeError("Ontology not loaded")
-        
-        # Query the ontology for rule information
-        # This is a simplified implementation - you may want to enhance
-        # this based on your specific ontology structure
-        
+
         explanation_parts = []
         constraints = []
         applies_to = []
         found = False
-        
-        # Try to find the rule in the ontology
-        # Look for classes, properties, or individuals with matching names
-        query = f"""
-        PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        PREFIX owl: <http://www.w3.org/2002/07/owl#>
-        
-        SELECT DISTINCT ?subject ?label ?comment ?type
-        WHERE {{
-            ?subject rdfs:label ?label .
-            FILTER(LCASE(?label) = LCASE("{rule_name}"))
-            OPTIONAL {{ ?subject rdfs:comment ?comment }}
-            OPTIONAL {{ ?subject rdf:type ?type }}
-        }}
-        """
-        
-        try:
-            results = validator.graph.query(query)
-            for row in results:
-                found = True
-                if row.comment:
-                    explanation_parts.append(str(row.comment))
-                if row.label:
-                    explanation_parts.append(f"Label: {row.label}")
-        except Exception as e:
-            logger.debug(f"SPARQL query failed, using fallback: {e}")
-        
-        # If not found via SPARQL, provide a generic explanation
+        rule_name_lower = rule_name.lower().strip()
+
+        # Method 1: Check in parsed action rules first
+        if hasattr(validator, '_action_rules') and validator._action_rules:
+            for action_name, rule in validator._action_rules.items():
+                # Match by action name or partial match
+                if (rule_name_lower == action_name or
+                    rule_name_lower in action_name or
+                    action_name in rule_name_lower):
+                    found = True
+                    explanation_parts.append(f"Action: {action_name}")
+
+                    if rule.get("requiresRole"):
+                        constraints.append(f"Requires role: {rule['requiresRole'].title()}")
+                    if rule.get("requiresApproval"):
+                        constraints.append(f"Requires approval from: {rule['requiresApproval'].title()}")
+                    if rule.get("appliesTo"):
+                        applies_to.append(rule["appliesTo"].title())
+                        explanation_parts.append(f"Applies to: {rule['appliesTo'].title()}")
+                    if rule.get("uri"):
+                        explanation_parts.append(f"URI: {rule['uri']}")
+                    break
+
+        # Method 2: Search by URI fragment (partial match)
+        if not found:
+            from rdflib import URIRef, Literal
+            from rdflib.namespace import RDF, RDFS, OWL
+
+            for subject in validator.graph.subjects():
+                if isinstance(subject, URIRef):
+                    uri_str = str(subject)
+                    # Extract fragment from URI
+                    fragment = uri_str.split('#')[-1] if '#' in uri_str else uri_str.split('/')[-1]
+
+                    # Check if rule_name matches fragment (case-insensitive, partial)
+                    if (rule_name_lower in fragment.lower() or
+                        fragment.lower() in rule_name_lower):
+                        found = True
+                        explanation_parts.append(f"Found: {fragment}")
+                        explanation_parts.append(f"URI: {uri_str}")
+
+                        # Get rdfs:comment
+                        for comment in validator.graph.objects(subject, RDFS.comment):
+                            explanation_parts.append(f"Description: {str(comment)}")
+
+                        # Get rdfs:label
+                        for label in validator.graph.objects(subject, RDFS.label):
+                            explanation_parts.append(f"Label: {str(label)}")
+
+                        # Get rdf:type
+                        for rdf_type in validator.graph.objects(subject, RDF.type):
+                            type_name = str(rdf_type).split('#')[-1] if '#' in str(rdf_type) else str(rdf_type)
+                            if type_name not in ['Class', 'NamedIndividual']:
+                                explanation_parts.append(f"Type: {type_name}")
+                        break
+
+        # Method 3: SPARQL with partial match
+        if not found:
+            query = f"""
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+            PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+            SELECT DISTINCT ?subject ?label ?comment ?type
+            WHERE {{
+                ?subject rdfs:label ?label .
+                FILTER(CONTAINS(LCASE(?label), LCASE("{rule_name_lower}")))
+                OPTIONAL {{ ?subject rdfs:comment ?comment }}
+                OPTIONAL {{ ?subject rdf:type ?type }}
+            }}
+            LIMIT 5
+            """
+
+            try:
+                results = validator.graph.query(query)
+                for row in results:
+                    found = True
+                    if row.label:
+                        explanation_parts.append(f"Label: {row.label}")
+                    if row.comment:
+                        explanation_parts.append(f"Description: {row.comment}")
+            except Exception as e:
+                logger.debug(f"SPARQL query failed: {e}")
+
+        # If still not found
         if not found:
             explanation_parts.append(
                 f"Rule '{rule_name}' was not found in the ontology. "
-                "It may be defined with a different name or structure."
+                "Try searching with different terms like 'delete', 'user', 'refund', etc."
             )
-        
+            # Suggest available actions
+            if hasattr(validator, '_known_actions') and validator._known_actions:
+                explanation_parts.append(f"Available actions: {', '.join(sorted(validator._known_actions))}")
+
         explanation = "\n".join(explanation_parts) if explanation_parts else "No explanation available."
-        
+
         response = {
             "rule_name": rule_name,
             "explanation": explanation,
@@ -439,10 +494,10 @@ def _explain_rule_impl(rule_name: str) -> Dict[str, Any]:
             "applies_to": applies_to,
             "found": found
         }
-        
+
         logger.info(f"Rule explanation generated for '{rule_name}' (found: {found})")
         return response
-        
+
     except RuntimeError as e:
         error_msg = f"Ontology not loaded: {e}"
         logger.error(error_msg)

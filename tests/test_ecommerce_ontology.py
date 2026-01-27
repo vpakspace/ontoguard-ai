@@ -64,9 +64,10 @@ class TestECommerceOntology:
             entity_id="user_123",
             context={"role": "Customer", "user_id": "customer_123"}
         )
-        # Note: Current implementation may allow this, but the ontology defines the rule
-        # This test documents the expected behavior
-        
+        # Customer MUST be denied - the ontology requires Admin role
+        assert result_customer.allowed is False
+        assert "admin" in result_customer.reason.lower() or "role" in result_customer.reason.lower()
+
         # Admin SHOULD be able to delete users
         result_admin = validator.validate(
             action="delete user",
@@ -75,7 +76,7 @@ class TestECommerceOntology:
             context={"role": "Admin", "user_id": "admin_001"}
         )
         # Admin should have permission
-        assert result_admin.allowed is True or "admin" in result_admin.reason.lower()
+        assert result_admin.allowed is True
     
     def test_modify_product_requires_admin(self, validator):
         """Test Rule 4: Products can only be modified by Admins."""
@@ -86,9 +87,10 @@ class TestECommerceOntology:
             entity_id="product_123",
             context={"role": "Customer", "user_id": "customer_123"}
         )
-        # The ontology defines this rule, but validator may need enhancement
-        # to fully enforce role-based restrictions
-        
+        # Customer MUST be denied - the ontology requires Admin role
+        assert result_customer.allowed is False
+        assert "admin" in result_customer.reason.lower() or "role" in result_customer.reason.lower()
+
         # Admin SHOULD be able to modify products
         result_admin = validator.validate(
             action="modify product",
@@ -96,7 +98,7 @@ class TestECommerceOntology:
             entity_id="product_456",
             context={"role": "Admin", "user_id": "admin_001"}
         )
-        assert result_admin.allowed is True or "admin" in result_admin.reason.lower()
+        assert result_admin.allowed is True
     
     def test_process_refund_with_high_value(self, validator):
         """Test Rule 2: Refunds over $1000 require Manager approval."""

@@ -1,0 +1,21 @@
+# OntoGuard MCP Server Global Configuration
+# Location: ~/ontoguard-ai/config.yaml
+
+# Path to the OWL ontology file (absolute path)
+ontology_path: "/home/vladspace_ubuntu24/ontoguard-ai/examples/ontologies/ecommerce.owl"
+
+# Logging configuration
+log_level: INFO
+
+# Cache validator at startup for faster responses
+cache_validations: true
+
+# Server metadata
+server:
+  name: "OntoGuard MCP Server"
+  version: "0.1.0"
+  description: "Semantic firewall for AI agents using OWL ontologies"
+
+# Transport (stdio for Claude Code integration)
+transport:
+  type: "stdio"

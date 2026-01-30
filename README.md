@@ -18,12 +18,13 @@
 
 **Stop AI agents from making $4.6M mistakes** 🚫💰
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/cloudbadal007/ontoguard-ai/tests.yml?branch=main&label=build)](https://github.com/cloudbadal007/ontoguard-ai/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/vpakspace/ontoguard-ai/tests.yml?branch=main&label=build)](https://github.com/vpakspace/ontoguard-ai/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Tests](https://img.shields.io/badge/tests-244%20passed-success)](https://github.com/cloudbadal007/ontoguard-ai/actions)
+[![Tests](https://img.shields.io/badge/tests-244%20passed-success)](https://github.com/vpakspace/ontoguard-ai/actions)
+[![UAC Integration](https://img.shields.io/badge/UAC-integrated-blue.svg)](https://github.com/vpakspace/universal-agent-connector)
 
 [![Demo GIF coming soon](https://img.shields.io/badge/Demo-GIF%20coming%20soon-blue)](https://github.com/cloudbadal007/ontoguard-ai)
 
@@ -304,6 +305,46 @@ python -m ontoguard.mcp_server
 # - explain_rule
 # - check_permissions
 ```
+
+---
+
+## 🔗 Integration with Universal Agent Connector
+
+OntoGuard is fully integrated with [Universal Agent Connector](https://github.com/vpakspace/universal-agent-connector) — an MCP infrastructure for AI agents with semantic validation.
+
+### What the integration provides
+
+- **SQL → OWL mapping**: SQL operations (SELECT, INSERT, UPDATE, DELETE) are mapped to semantic actions (read, create, update, delete)
+- **Table → Entity mapping**: SQL tables map to OWL entity types (e.g., `patients` → `PatientRecord`)
+- **Two-level protection**: OntoGuard (semantic RBAC) + Resource Permissions (table-level access)
+- **REST API**: 5 endpoints for validation, permissions, allowed actions, and rule explanation
+- **MCP tools**: 5 MCP tools for AI agent integration
+- **Streamlit UI**: Web interface with OntoGuard validation tab
+
+### Verified test results (UAC)
+
+- **21/21 semantic validation tests** passed (role-based allow/deny)
+- **15/15 E2E PostgreSQL tests** passed (real SQL queries with OntoGuard validation)
+- **94 unit tests** passed (CI green: lint + test on Python 3.10/3.11/3.12)
+
+### Quick example
+
+```bash
+# Query with OntoGuard validation
+curl -X POST http://localhost:5000/api/agents/doctor-1/query \
+  -H "X-API-Key: <key>" \
+  -H "X-User-Role: Doctor" \
+  -d '{"query": "SELECT * FROM patients"}'
+# ✅ Allowed: Doctor can read PatientRecord
+
+curl -X POST http://localhost:5000/api/agents/nurse-1/query \
+  -H "X-API-Key: <key>" \
+  -H "X-User-Role: Nurse" \
+  -d '{"query": "DELETE FROM patients WHERE id=1"}'
+# ❌ Denied: Nurse cannot delete PatientRecord (requires Admin)
+```
+
+See [UAC repository](https://github.com/vpakspace/universal-agent-connector) for full integration details.
 
 ---
 

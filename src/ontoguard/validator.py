@@ -172,15 +172,18 @@ class OntologyValidator:
         'read', 'create', 'update', 'delete', 'write', 'modify',
         'view', 'list', 'search', 'export', 'import', 'execute',
         'prescribe', 'dispense', 'schedule', 'cancel', 'approve',
-        'discharge', 'transfer', 'assign', 'manage', 'process'
+        'discharge', 'transfer', 'assign', 'manage', 'process',
+        'block'
     ]
 
     # Common role names for parsing combined rule names
     # Sorted by length (longer first) for proper matching
     ROLE_NAMES = [
+        'individualcustomer', 'corporatecustomer', 'complianceofficer',
         'labtechnician', 'insuranceagent', 'receptionist', 'pharmacist',
         'supervisor', 'insurance', 'operator', 'customer', 'manager',
-        'patient', 'labtech', 'doctor', 'admin', 'nurse', 'guest', 'user'
+        'patient', 'labtech', 'doctor', 'analyst', 'auditor', 'teller',
+        'admin', 'nurse', 'guest', 'user'
     ]
 
     def __init__(self, ontology_path: str) -> None:

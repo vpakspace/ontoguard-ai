@@ -229,6 +229,40 @@ result = validator.validate(
 
 ---
 
+## 🔒 Design Decision: Closed World Assumption (CWA)
+
+OntoGuard uses OWL as a **serialization format** for access-control rules, but it deliberately operates under the **Closed World Assumption** (CWA), not the Open World Assumption (OWA) that is standard in OWL reasoning.
+
+### What this means
+
+| Aspect | OWA (standard OWL) | CWA (OntoGuard) |
+|--------|---------------------|------------------|
+| Unknown fact | Possibly true | False (denied) |
+| No rule for action | No conclusion | **Action denied** |
+| Security model | Blacklist | **Whitelist** |
+
+In practice: if no OWL rule explicitly permits a role to perform an action on an entity, OntoGuard **denies the request**. This is the opposite of OWL reasoning, where the absence of a statement does not imply its negation.
+
+### Why CWA?
+
+OntoGuard is a **security component**. In security, a whitelist ("deny by default") is fundamentally safer than a blacklist:
+
+- A missing rule means **no access**, not open access
+- New entities are protected automatically until rules are added
+- Reduces the blast radius of misconfigured ontologies
+
+### OWL as serialization, not reasoning
+
+OntoGuard does **not** use an OWL reasoner (like HermiT or Pellet). Instead, it uses RDFLib to parse OWL files as structured data and performs **indexed lookups** against parsed rules. The OWL format was chosen because:
+
+1. It is a W3C standard for expressing entity types and relationships
+2. It is compatible with tools like Protege for visual editing
+3. It can encode role-action-entity triples naturally via class instances and properties (`requiresRole`, `appliesTo`, `allowsAction`)
+
+This means OntoGuard is a **rule engine with OWL-serialized rules**, not an ontology reasoner. The distinction matters: OWL reasoners infer new facts under OWA, while OntoGuard checks permissions against an explicit whitelist under CWA.
+
+---
+
 ## 📖 Documentation
 
 | Resource | Description | Link |

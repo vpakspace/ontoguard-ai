@@ -648,7 +648,16 @@ class OntologyValidator:
                 metadata=metadata
             )
 
-        # No matching rule found - check why and provide helpful error
+        # DESIGN DECISION: Closed World Assumption (CWA)
+        #
+        # OntoGuard intentionally uses CWA — if no OWL rule explicitly
+        # permits an action, the action is DENIED.  Standard OWL semantics
+        # follow Open World Assumption (OWA), where the absence of a
+        # statement does not imply its negation.  We diverge from OWA
+        # because OntoGuard is a security component: a whitelist ("deny
+        # by default") is safer than a blacklist.  OWL is used here as a
+        # serialization format for access-control rules, not as a formal
+        # ontology for reasoning under OWA.
         denial_result = self._explain_denial_enhanced(action_lower, entity_lower, user_role)
         metadata.update(denial_result.get("metadata", {}))
 
@@ -942,6 +951,7 @@ class OntologyValidator:
         if matching_rules:
             return {"allowed": True}
 
+        # CWA: no matching rule → deny (see validate_action for rationale)
         denial_info = self._explain_denial_enhanced(
             action.lower(), entity.lower(), user_role
         )
